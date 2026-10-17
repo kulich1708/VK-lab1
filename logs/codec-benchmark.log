@@ -1,0 +1,40 @@
+﻿**********************
+Начало записи сценария Windows PowerShell
+Время начала: 20261017214401
+Имя пользователя: LAPTOP-2V44BJNA\Влад
+Запуск от имени пользователя: LAPTOP-2V44BJNA\Влад
+Имя конфигурации: 
+Компьютер: LAPTOP-2V44BJNA (Microsoft Windows NT 10.0.19045.0)
+Ведущее приложение: C:\WINDOWS\System32\WindowsPowerShell\v1.0\powershell.exe -noexit -command try { . "c:\Users\Влад\AppData\Local\Programs\Microsoft VS Code\6d62b1d5da\resources\app\out\vs\workbench\contrib\terminal\common\scripts\shellIntegration.ps1" } catch {}
+ИД процесса: 21144
+PSVersion: 5.1.19041.6456
+PSEdition: Desktop
+PSCompatibleVersions: 1.0, 2.0, 3.0, 4.0, 5.0, 5.1.19041.6456
+BuildVersion: 10.0.19041.6456
+CLRVersion: 4.0.30319.42000
+WSManStackVersion: 3.0
+PSRemotingProtocolVersion: 2.3
+SerializationVersion: 1.1.0.1
+**********************
+
+##################  BRONZE: GZIP  ##################
+Bronze write (GZIP): 3.963 s
+
+Q16 on Bronze (GZIP), run 1: 2.986 s
+Q16 on Bronze (GZIP), run 2: 2.673 s
+Q16 on Bronze (GZIP), run 3: 2.585 s
+
+##################  BRONZE: ZSTD  ##################
+Bronze write (ZSTD): 3.279 s
+
+Q16 on Bronze (ZSTD), run 1: 3.08 s
+Q16 on Bronze (ZSTD), run 2: 2.547 s
+Q16 on Bronze (ZSTD), run 3: 2.48 s
+
+#### Timings from system.runtime.queries ####
+
+DONE
+**********************
+Конец записи протокола Windows PowerShell
+Время окончания: 20261017214431
+**********************
