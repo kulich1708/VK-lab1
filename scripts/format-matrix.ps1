@@ -1,20 +1,50 @@
 Set-Location (Split-Path -Parent $PSScriptRoot)
+
 $logDir = Join-Path (Get-Location) "logs"
 if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Path $logDir | Out-Null }
 
-$logFile = Join-Path $logDir "format-matrix.log"
-if (Test-Path $logFile) { Remove-Item $logFile }
-Start-Transcript -Path $logFile -Force | Out-Null
-
+$log = Join-Path $logDir "format-matrix.log"
 try {
-    foreach ($fmt in @("PARQUET", "ORC")) {
-        foreach ($codec in @("NONE", "SNAPPY", "GZIP", "ZSTD")) {
-            $schema = "fmt_$($fmt.ToLower())_$($codec.ToLower())"
-            $tag = "p1fmt_$($fmt)_$($codec)"
-            Write-Host ""
-            Write-Host ("#" * 10 + "  $fmt / $codec (схема $schema)  " + "#" * 10) -ForegroundColor Yellow
+    if (Test-Path $log) { Clear-Content -Path $log -ErrorAction Stop }
+    else { New-Item -ItemType File -Path $log | Out-Null }
+} catch { Write-Host "Cannot open $log. Close it and retry." -ForegroundColor Red; exit 1 }
 
-            $writeSql = @"
+function Write-Log([string]$Text) {
+    Write-Host $Text
+    Add-Content -Path $log -Value $Text -Encoding UTF8
+}
+
+function Show-Sql([string]$Sql) {
+    $Sql | docker exec -i trino trino --no-progress --output-format ALIGNED 2>&1 |
+        ForEach-Object {
+            Write-Host $_
+            if ("$_" -notmatch 'WARNING: Unable|org\.jline') {
+                Add-Content -Path $log -Value $_ -Encoding UTF8
+            }
+        }
+}
+
+foreach ($c in @("lakehouse-minio", "lakehouse-pg", "lakekeeper", "trino")) {
+    if ((docker inspect -f '{{.State.Running}}' $c 2>$null) -ne "true") {
+        Write-Log "Container $c is not running. Run .\infra\restart-stack.ps1 first."
+        exit 1
+    }
+}
+if (-not ((curl.exe -sf http://localhost:18080/v1/info) -match '"starting":false')) {
+    Write-Log "Trino is still starting, wait and retry."
+    exit 1
+}
+Write-Log "Stack is healthy"
+
+foreach ($fmt in @("PARQUET", "ORC")) {
+    foreach ($codec in @("NONE", "SNAPPY", "GZIP", "ZSTD")) {
+        $schema = "fmt_$($fmt.ToLower())_$($codec.ToLower())"
+        $tag    = "p1fmt_$($fmt)_$($codec)"
+
+        Write-Log ""
+        Write-Log ("#" * 10 + "  $fmt / $codec (schema $schema)  " + "#" * 10)
+
+        $writeSql = @"
 SET SESSION lakekeeper.compression_codec = '$codec';
 CREATE SCHEMA IF NOT EXISTS lakekeeper.$schema;
 DROP TABLE IF EXISTS lakekeeper.$schema.part;
@@ -29,36 +59,32 @@ CREATE TABLE lakekeeper.$schema.supplier WITH (format = '$fmt') AS
 SELECT suppkey, comment, comment LIKE '%Customer%Complaints%' AS has_complaint
 FROM tpch.sf1.supplier;
 "@
-            $tmp = Join-Path $logDir "_fmt_${schema}.sql"
-            Set-Content -Path $tmp -Value $writeSql -Encoding UTF8
+        $t = Measure-Command {
+            $writeSql | docker exec -i trino trino --no-progress --output-format ALIGNED 2>&1 | Out-Null
+        }
+        Write-Log "Write ($fmt/$codec): $([math]::Round($t.TotalSeconds, 3)) s"
 
-            $t = Measure-Command {
-                Get-Content -Raw -Encoding UTF8 $tmp | docker exec -i trino trino --output-format ALIGNED | Out-Null
-            }
-            Write-Host "Запись ($fmt/$codec): $([math]::Round($t.TotalSeconds, 3)) с"
-
-            # Размер + файлы
-            docker exec trino trino --output-format ALIGNED --execute "
+        Write-Log "Size ($fmt/$codec):"
+        Show-Sql @"
 SELECT '$fmt' AS format, '$codec' AS codec, sum(files) AS files, sum(bytes) AS bytes,
        round(CAST(sum(bytes) AS double)/1048576, 4) AS size_mb
 FROM (
-  SELECT count(*) AS files, sum(file_size_in_bytes) AS bytes FROM lakekeeper.$schema.`"part`$files`"
+  SELECT count(*) AS files, sum(file_size_in_bytes) AS bytes FROM lakekeeper.$schema."part`$files"
   UNION ALL
-  SELECT count(*), sum(file_size_in_bytes) FROM lakekeeper.$schema.`"partsupp`$files`"
+  SELECT count(*), sum(file_size_in_bytes) FROM lakekeeper.$schema."partsupp`$files"
   UNION ALL
-  SELECT count(*), sum(file_size_in_bytes) FROM lakekeeper.$schema.`"supplier`$files`"
+  SELECT count(*), sum(file_size_in_bytes) FROM lakekeeper.$schema."supplier`$files"
 )
-"
+"@
 
-            # Кодек в свойствах
-            docker exec trino trino --output-format ALIGNED --execute "
-SELECT key, value FROM lakekeeper.$schema.`"part`$properties`"
+        Write-Log "Codec in properties ($fmt/$codec):"
+        Show-Sql @"
+SELECT key, value FROM lakekeeper.$schema."part`$properties"
 WHERE key LIKE 'write.%compression-codec' OR key = 'write.format.default'
-"
+"@
 
-            # 3 прогона Q16
-            for ($run = 1; $run -le 3; $run++) {
-                $sql = @"
+        for ($run = 1; $run -le 3; $run++) {
+            $q = @"
 /* ${tag}_run${run} */
 SELECT p.brand, p.type, p.size, count(DISTINCT ps.suppkey) AS supplier_cnt
 FROM lakekeeper.$schema.partsupp AS ps
@@ -73,23 +99,22 @@ WHERE p.brand <> 'BRAND#45'
 GROUP BY p.brand, p.type, p.size
 ORDER BY supplier_cnt DESC, p.brand, p.type, p.size
 "@
-                docker exec trino trino --output-format ALIGNED --execute $sql | Out-Null
+            $t = Measure-Command {
+                $q | docker exec -i trino trino --no-progress --output-format ALIGNED 2>&1 | Out-Null
             }
+            Write-Log "Q16 ($fmt/$codec), run ${run}: $([math]::Round($t.TotalSeconds, 3)) s"
+        }
 
-            # Время из системной таблицы
-            docker exec trino trino --output-format ALIGNED --execute "
+        Write-Log "Timings ($fmt/$codec):"
+        Show-Sql @"
 SELECT regexp_extract(query, 'p1fmt_[A-Z]+_[A-Z]+_run[0-9]') AS tag,
-       state,
-       date_diff('millisecond', started, `"end`") AS exec_ms
+       state, date_diff('millisecond', started, "end") AS exec_ms
 FROM system.runtime.queries
 WHERE query LIKE '%${tag}_run%'
   AND query NOT LIKE '%system.runtime.queries%'
 ORDER BY created
-"
-        }
+"@
     }
-    Write-Host "ГОТОВО" -ForegroundColor Green
 }
-finally {
-    Stop-Transcript | Out-Null
-}
+
+Write-Log "DONE"

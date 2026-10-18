@@ -1,42 +1,21 @@
-﻿**********************
-Начало записи сценария Windows PowerShell
-Время начала: 20261017214030
-Имя пользователя: LAPTOP-2V44BJNA\Влад
-Запуск от имени пользователя: LAPTOP-2V44BJNA\Влад
-Имя конфигурации: 
-Компьютер: LAPTOP-2V44BJNA (Microsoft Windows NT 10.0.19045.0)
-Ведущее приложение: C:\WINDOWS\System32\WindowsPowerShell\v1.0\powershell.exe -noexit -command try { . "c:\Users\Влад\AppData\Local\Programs\Microsoft VS Code\6d62b1d5da\resources\app\out\vs\workbench\contrib\terminal\common\scripts\shellIntegration.ps1" } catch {}
-ИД процесса: 21144
-PSVersion: 5.1.19041.6456
-PSEdition: Desktop
-PSCompatibleVersions: 1.0, 2.0, 3.0, 4.0, 5.0, 5.1.19041.6456
-BuildVersion: 10.0.19041.6456
-CLRVersion: 4.0.30319.42000
-WSManStackVersion: 3.0
-PSRemotingProtocolVersion: 2.3
-SerializationVersion: 1.1.0.1
-**********************
-Stack is healthy
-=== 0. Schemas ===
-
-=== 1. Bronze (codec ZSTD) ===
-Bronze write: 7.991 s
-=== 1a. Bronze data quality report ===
-
-=== 2. Silver ===
-Silver write: 5.212 s
-
-
-=== 3. Gold ===
-Gold write: 4.876 s
-=== 4. Reconcile Gold with Q16 directly ===
-
-=== 5. Layer sizes ===
-
-=== 6. Codecs in table properties ===
-
+﻿Stack is healthy
+Bronze write: 9.356 s
+Silver write: 5.952 s
+Gold write: 4.863 s
+Reconcile Gold vs Q16 directly (expect 0 0 N N):
+ direct_minus_gold | gold_minus_direct | gold_rows | direct_rows 
+-------------------+-------------------+-----------+-------------
+                 0 |                 0 |     18314 |       18314 
+(1 row)
+Layers (rows, files, MB, codec):
+            tbl            | rows_cnt | files | size_mb | codec 
+---------------------------+----------+-------+---------+-------
+ bronze.part               |   200000 |     1 |  1.7675 | zstd  
+ bronze.partsupp           |   800000 |     1 |   2.182 | zstd  
+ bronze.supplier           |    10000 |     1 |  0.1742 | zstd  
+ gold.parts_supplier_count |    18314 |     1 |  0.0391 | zstd  
+ silver.part               |   200000 |     1 |  0.6569 | zstd  
+ silver.partsupp           |   800000 |     1 |  2.6207 | zstd  
+ silver.supplier           |    10000 |     1 |  0.1743 | zstd  
+(7 rows)
 DONE
-**********************
-Конец записи протокола Windows PowerShell
-Время окончания: 20261017214113
-**********************

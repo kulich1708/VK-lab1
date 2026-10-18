@@ -1,0 +1,194 @@
+﻿Stack is healthy
+
+##########  PARQUET / NONE (schema fmt_parquet_none)  ##########
+Write (PARQUET/NONE): 4.194 s
+Size (PARQUET/NONE):
+ format  | codec | files |  bytes  | size_mb 
+---------+-------+-------+---------+---------
+ PARQUET | NONE  |     3 | 8723483 |  8.3194 
+(1 row)
+Codec in properties (PARQUET/NONE):
+               key               |    value     
+---------------------------------+--------------
+ write.format.default            | PARQUET      
+ write.parquet.compression-codec | uncompressed 
+(2 rows)
+Q16 (PARQUET/NONE), run 1: 3.239 s
+Q16 (PARQUET/NONE), run 2: 2.852 s
+Q16 (PARQUET/NONE), run 3: 2.529 s
+Timings (PARQUET/NONE):
+           tag           |  state   | exec_ms 
+-------------------------+----------+---------
+ p1fmt_PARQUET_NONE_run1 | FINISHED |    1352 
+ p1fmt_PARQUET_NONE_run2 | FINISHED |     716 
+ p1fmt_PARQUET_NONE_run3 | FINISHED |     640 
+(3 rows)
+
+##########  PARQUET / SNAPPY (schema fmt_parquet_snappy)  ##########
+Write (PARQUET/SNAPPY): 3.272 s
+Size (PARQUET/SNAPPY):
+ format  | codec  | files |  bytes  | size_mb 
+---------+--------+-------+---------+---------
+ PARQUET | SNAPPY |     3 | 4896387 |  4.6696 
+(1 row)
+Codec in properties (PARQUET/SNAPPY):
+               key               |  value  
+---------------------------------+---------
+ write.format.default            | PARQUET 
+ write.parquet.compression-codec | snappy  
+(2 rows)
+Q16 (PARQUET/SNAPPY), run 1: 2.775 s
+Q16 (PARQUET/SNAPPY), run 2: 2.435 s
+Q16 (PARQUET/SNAPPY), run 3: 2.529 s
+Timings (PARQUET/SNAPPY):
+            tag            |  state   | exec_ms 
+---------------------------+----------+---------
+ p1fmt_PARQUET_SNAPPY_run1 | FINISHED |     853 
+ p1fmt_PARQUET_SNAPPY_run2 | FINISHED |     587 
+ p1fmt_PARQUET_SNAPPY_run3 | FINISHED |     621 
+(3 rows)
+
+##########  PARQUET / GZIP (schema fmt_parquet_gzip)  ##########
+Write (PARQUET/GZIP): 3.33 s
+Size (PARQUET/GZIP):
+ format  | codec | files |  bytes  | size_mb 
+---------+-------+-------+---------+---------
+ PARQUET | GZIP  |     3 | 3273800 |  3.1221 
+(1 row)
+Codec in properties (PARQUET/GZIP):
+               key               |  value  
+---------------------------------+---------
+ write.format.default            | PARQUET 
+ write.parquet.compression-codec | gzip    
+(2 rows)
+Q16 (PARQUET/GZIP), run 1: 2.494 s
+Q16 (PARQUET/GZIP), run 2: 2.42 s
+Q16 (PARQUET/GZIP), run 3: 2.293 s
+Timings (PARQUET/GZIP):
+           tag           |  state   | exec_ms 
+-------------------------+----------+---------
+ p1fmt_PARQUET_GZIP_run1 | FINISHED |     699 
+ p1fmt_PARQUET_GZIP_run2 | FINISHED |     600 
+ p1fmt_PARQUET_GZIP_run3 | FINISHED |     529 
+(3 rows)
+
+##########  PARQUET / ZSTD (schema fmt_parquet_zstd)  ##########
+Write (PARQUET/ZSTD): 3.194 s
+Size (PARQUET/ZSTD):
+ format  | codec | files |  bytes  | size_mb 
+---------+-------+-------+---------+---------
+ PARQUET | ZSTD  |     3 | 3157838 |  3.0115 
+(1 row)
+Codec in properties (PARQUET/ZSTD):
+               key               |  value  
+---------------------------------+---------
+ write.format.default            | PARQUET 
+ write.parquet.compression-codec | zstd    
+(2 rows)
+Q16 (PARQUET/ZSTD), run 1: 2.54 s
+Q16 (PARQUET/ZSTD), run 2: 2.247 s
+Q16 (PARQUET/ZSTD), run 3: 2.348 s
+Timings (PARQUET/ZSTD):
+           tag           |  state   | exec_ms 
+-------------------------+----------+---------
+ p1fmt_PARQUET_ZSTD_run1 | FINISHED |     750 
+ p1fmt_PARQUET_ZSTD_run2 | FINISHED |     522 
+ p1fmt_PARQUET_ZSTD_run3 | FINISHED |     516 
+(3 rows)
+
+##########  ORC / NONE (schema fmt_orc_none)  ##########
+Write (ORC/NONE): 3.541 s
+Size (ORC/NONE):
+ format | codec | files |  bytes  | size_mb 
+--------+-------+-------+---------+---------
+ ORC    | NONE  |     3 | 3702644 |  3.5311 
+(1 row)
+Codec in properties (ORC/NONE):
+             key             | value 
+-----------------------------+-------
+ write.format.default        | ORC   
+ write.orc.compression-codec | none  
+(2 rows)
+Q16 (ORC/NONE), run 1: 2.722 s
+Q16 (ORC/NONE), run 2: 2.357 s
+Q16 (ORC/NONE), run 3: 2.325 s
+Timings (ORC/NONE):
+         tag         |  state   | exec_ms 
+---------------------+----------+---------
+ p1fmt_ORC_NONE_run1 | FINISHED |     843 
+ p1fmt_ORC_NONE_run2 | FINISHED |     538 
+ p1fmt_ORC_NONE_run3 | FINISHED |     549 
+(3 rows)
+
+##########  ORC / SNAPPY (schema fmt_orc_snappy)  ##########
+Write (ORC/SNAPPY): 3.146 s
+Size (ORC/SNAPPY):
+ format | codec  | files |  bytes  | size_mb 
+--------+--------+-------+---------+---------
+ ORC    | SNAPPY |     3 | 3255973 |  3.1051 
+(1 row)
+Codec in properties (ORC/SNAPPY):
+             key             | value  
+-----------------------------+--------
+ write.format.default        | ORC    
+ write.orc.compression-codec | snappy 
+(2 rows)
+Q16 (ORC/SNAPPY), run 1: 2.489 s
+Q16 (ORC/SNAPPY), run 2: 2.301 s
+Q16 (ORC/SNAPPY), run 3: 2.306 s
+Timings (ORC/SNAPPY):
+          tag          |  state   | exec_ms 
+-----------------------+----------+---------
+ p1fmt_ORC_SNAPPY_run1 | FINISHED |     624 
+ p1fmt_ORC_SNAPPY_run2 | FINISHED |     513 
+ p1fmt_ORC_SNAPPY_run3 | FINISHED |     412 
+(3 rows)
+
+##########  ORC / GZIP (schema fmt_orc_gzip)  ##########
+Write (ORC/GZIP): 3.227 s
+Size (ORC/GZIP):
+ format | codec | files |  bytes  | size_mb 
+--------+-------+-------+---------+---------
+ ORC    | GZIP  |     3 | 2033181 |   1.939 
+(1 row)
+Codec in properties (ORC/GZIP):
+             key             | value 
+-----------------------------+-------
+ write.format.default        | ORC   
+ write.orc.compression-codec | zlib  
+(2 rows)
+Q16 (ORC/GZIP), run 1: 2.485 s
+Q16 (ORC/GZIP), run 2: 3.378 s
+Q16 (ORC/GZIP), run 3: 5.496 s
+Timings (ORC/GZIP):
+         tag         |  state   | exec_ms 
+---------------------+----------+---------
+ p1fmt_ORC_GZIP_run1 | FINISHED |     664 
+ p1fmt_ORC_GZIP_run2 | FINISHED |     792 
+ p1fmt_ORC_GZIP_run3 | FINISHED |     794 
+(3 rows)
+
+##########  ORC / ZSTD (schema fmt_orc_zstd)  ##########
+Write (ORC/ZSTD): 5.908 s
+Size (ORC/ZSTD):
+ format | codec | files |  bytes  | size_mb 
+--------+-------+-------+---------+---------
+ ORC    | ZSTD  |     3 | 2121370 |  2.0231 
+(1 row)
+Codec in properties (ORC/ZSTD):
+             key             | value 
+-----------------------------+-------
+ write.format.default        | ORC   
+ write.orc.compression-codec | zstd  
+(2 rows)
+Q16 (ORC/ZSTD), run 1: 5.259 s
+Q16 (ORC/ZSTD), run 2: 4.988 s
+Q16 (ORC/ZSTD), run 3: 5.311 s
+Timings (ORC/ZSTD):
+         tag         |  state   | exec_ms 
+---------------------+----------+---------
+ p1fmt_ORC_ZSTD_run1 | FINISHED |    1139 
+ p1fmt_ORC_ZSTD_run2 | FINISHED |    1036 
+ p1fmt_ORC_ZSTD_run3 | FINISHED |    1140 
+(3 rows)
+DONE

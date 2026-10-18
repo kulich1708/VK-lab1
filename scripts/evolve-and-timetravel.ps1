@@ -1,63 +1,103 @@
 Set-Location (Split-Path -Parent $PSScriptRoot)
+
 $logDir = Join-Path (Get-Location) "logs"
 if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Path $logDir | Out-Null }
 
-$logFile = Join-Path $logDir "evolve-and-timetravel.log"
-if (Test-Path $logFile) { Remove-Item $logFile }
-Start-Transcript -Path $logFile -Force | Out-Null
-
+$log = Join-Path $logDir "evolve-and-timetravel.log"
 try {
-    $T = "lakekeeper.silver.partsupp"
+    if (Test-Path $log) { Clear-Content -Path $log -ErrorAction Stop }
+    else { New-Item -ItemType File -Path $log | Out-Null }
+} catch { Write-Host "Cannot open $log. Close it and retry." -ForegroundColor Red; exit 1 }
 
-    Write-Host "#### SCHEMA EVOLUTION ####" -ForegroundColor Yellow
-    docker exec trino trino --output-format ALIGNED --execute "DESCRIBE $T"
-    $filesBefore = docker exec trino trino --output-format CSV_UNQUOTED --execute "SELECT count(*) FROM lakekeeper.silver.`"partsupp`$files`""
-    $rowsBefore  = docker exec trino trino --output-format CSV_UNQUOTED --execute "SELECT count(*) FROM $T"
-    Write-Host "Файлов до: $($filesBefore[-1]), строк: $($rowsBefore[-1])"
+function Write-Log([string]$Text) {
+    Write-Host $Text
+    Add-Content -Path $log -Value $Text -Encoding UTF8
+}
 
-    Write-Host "--- ADD COLUMN supply_share ---"
-    docker exec trino trino --output-format ALIGNED --execute "ALTER TABLE $T ADD COLUMN supply_share double"
-    docker exec trino trino --output-format ALIGNED --execute "SELECT partkey, suppkey, supply_share FROM $T LIMIT 5"
-    docker exec trino trino --output-format ALIGNED --execute "SELECT count(*) AS rows_total, count(supply_share) AS new_col_not_null FROM $T"
-    $filesAfter = docker exec trino trino --output-format CSV_UNQUOTED --execute "SELECT count(*) FROM lakekeeper.silver.`"partsupp`$files`""
-    Write-Host "Файлов после ADD COLUMN: $($filesAfter[-1]) (не переписывались)"
+function Show-Sql([string]$Sql) {
+    $Sql | docker exec -i trino trino --no-progress --output-format ALIGNED 2>&1 |
+        ForEach-Object {
+            Write-Host $_
+            if ("$_" -notmatch 'WARNING: Unable|org\.jline') {
+                Add-Content -Path $log -Value $_ -Encoding UTF8
+            }
+        }
+}
 
-    Write-Host "--- RENAME COLUMN supply_share -> line_share ---"
-    docker exec trino trino --output-format ALIGNED --execute "ALTER TABLE $T RENAME COLUMN supply_share TO line_share"
-    docker exec trino trino --output-format ALIGNED --execute "DESCRIBE $T"
+function Get-SqlScalar([string]$Sql) {
+    $out = $Sql | docker exec -i trino trino --no-progress --output-format CSV_UNQUOTED 2>$null
+    return ($out | Select-Object -Last 1).Trim()
+}
 
-    Write-Host "--- DROP COLUMN line_share, схема как раньше ---"
-    docker exec trino trino --output-format ALIGNED --execute "ALTER TABLE $T DROP COLUMN line_share"
-    docker exec trino trino --output-format ALIGNED --execute "DESCRIBE $T"
-
-    Write-Host ""
-    Write-Host "#### TIME TRAVEL ####" -ForegroundColor Yellow
-    docker exec trino trino --output-format ALIGNED --execute "SELECT snapshot_id, committed_at, operation FROM lakekeeper.silver.`"partsupp`$snapshots`" ORDER BY committed_at"
-
-    $goodOut = docker exec trino trino --output-format CSV_UNQUOTED --execute "SELECT snapshot_id FROM lakekeeper.silver.`"partsupp`$snapshots`" ORDER BY committed_at DESC LIMIT 1"
-    $good = $goodOut[-1]
-    Write-Host "Хороший снапшот: $good"
-
-    docker exec trino trino --output-format ALIGNED --execute "SELECT count(*) AS rows_before_accident FROM $T"
-
-    Write-Host "--- АВАРИЯ: удаляем все связи с нечётными suppkey ---"
-    docker exec trino trino --output-format ALIGNED --execute "DELETE FROM $T WHERE suppkey % 2 = 1"
-    docker exec trino trino --output-format ALIGNED --execute "SELECT count(*) AS rows_after_accident FROM $T"
-
-    Write-Host "--- Читаем старый снапшот через FOR VERSION AS OF ---"
-    docker exec trino trino --output-format ALIGNED --execute "SELECT count(*) AS rows_in_old_snapshot FROM $T FOR VERSION AS OF $good"
-
-    Write-Host "--- ВОССТАНОВЛЕНИЕ: rollback_to_snapshot ---"
-    docker exec trino trino --output-format ALIGNED --execute "ALTER TABLE $T EXECUTE rollback_to_snapshot($good)"
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "(ALTER TABLE EXECUTE не прошёл, пробуем CALL)"
-        docker exec trino trino --output-format ALIGNED --execute "CALL lakekeeper.system.rollback_to_snapshot('silver', 'partsupp', $good)"
+foreach ($c in @("lakehouse-minio", "lakehouse-pg", "lakekeeper", "trino")) {
+    if ((docker inspect -f '{{.State.Running}}' $c 2>$null) -ne "true") {
+        Write-Log "Container $c is not running. Run .\infra\restart-stack.ps1 first."
+        exit 1
     }
-    docker exec trino trino --output-format ALIGNED --execute "SELECT count(*) AS rows_after_restore FROM $T"
-    docker exec trino trino --output-format ALIGNED --execute "SELECT snapshot_id, committed_at, operation FROM lakekeeper.silver.`"partsupp`$snapshots`" ORDER BY committed_at"
+}
+if (-not ((curl.exe -sf http://localhost:18080/v1/info) -match '"starting":false')) {
+    Write-Log "Trino is still starting, wait and retry."
+    exit 1
+}
+Write-Log "Stack is healthy"
 
-    Write-Host "ГОТОВО" -ForegroundColor Green
-}
-finally {
-    Stop-Transcript | Out-Null
-}
+$T = "lakekeeper.silver.partsupp"
+
+Write-Log ""
+Write-Log "#### SCHEMA EVOLUTION ####"
+
+Write-Log "Schema before:"
+Show-Sql "DESCRIBE $T;"
+
+$filesBefore = Get-SqlScalar 'SELECT count(*) FROM lakekeeper.silver."partsupp$files";'
+$rowsBefore  = Get-SqlScalar "SELECT count(*) FROM $T;"
+Write-Log "Files before: $filesBefore, rows before: $rowsBefore"
+
+Write-Log "--- ADD COLUMN supply_share ---"
+Show-Sql "ALTER TABLE $T ADD COLUMN supply_share double;"
+Write-Log "First 5 rows (supply_share must be NULL):"
+Show-Sql "SELECT partkey, suppkey, supply_share FROM $T LIMIT 5;"
+Write-Log "Row counts (new_col_not_null must be 0):"
+Show-Sql "SELECT count(*) AS rows_total, count(supply_share) AS new_col_not_null FROM $T;"
+
+$filesAfter = Get-SqlScalar 'SELECT count(*) FROM lakekeeper.silver."partsupp$files";'
+Write-Log "Files after ADD COLUMN: $filesAfter (must equal $filesBefore - files not rewritten)"
+
+Write-Log "--- RENAME COLUMN supply_share to line_share ---"
+Show-Sql "ALTER TABLE $T RENAME COLUMN supply_share TO line_share;"
+Show-Sql "DESCRIBE $T;"
+
+Write-Log "--- DROP COLUMN line_share (back to original schema) ---"
+Show-Sql "ALTER TABLE $T DROP COLUMN line_share;"
+Show-Sql "DESCRIBE $T;"
+
+Write-Log ""
+Write-Log "#### TIME TRAVEL ####"
+Write-Log "Snapshot history:"
+Show-Sql 'SELECT snapshot_id, committed_at, operation FROM lakekeeper.silver."partsupp$snapshots" ORDER BY committed_at;'
+
+$good = Get-SqlScalar 'SELECT snapshot_id FROM lakekeeper.silver."partsupp$snapshots" ORDER BY committed_at DESC LIMIT 1;'
+Write-Log "Good snapshot id: $good"
+
+$rowsAccidentBefore = Get-SqlScalar "SELECT count(*) FROM $T;"
+Write-Log "Rows before accident: $rowsAccidentBefore"
+
+Write-Log "--- ACCIDENT: DELETE ... WHERE suppkey % 2 = 1 ---"
+Show-Sql "DELETE FROM $T WHERE suppkey % 2 = 1;"
+$rowsAfterAccident = Get-SqlScalar "SELECT count(*) FROM $T;"
+Write-Log "Rows after accident: $rowsAfterAccident"
+
+Write-Log "--- Read old snapshot via FOR VERSION AS OF $good ---"
+$rowsInOldSnapshot = Get-SqlScalar "SELECT count(*) FROM $T FOR VERSION AS OF $good;"
+Write-Log "Rows in old snapshot: $rowsInOldSnapshot"
+
+Write-Log "--- RESTORE: rollback_to_snapshot($good) ---"
+Show-Sql "ALTER TABLE $T EXECUTE rollback_to_snapshot($good);"
+$rowsAfterRestore = Get-SqlScalar "SELECT count(*) FROM $T;"
+Write-Log "Rows after restore: $rowsAfterRestore"
+
+Write-Log "Snapshot history after restore:"
+Show-Sql 'SELECT snapshot_id, committed_at, operation FROM lakekeeper.silver."partsupp$snapshots" ORDER BY committed_at;'
+
+Write-Log ""
+Write-Log "DONE"

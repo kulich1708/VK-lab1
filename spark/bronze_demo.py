@@ -1,8 +1,3 @@
-"""
-Читает Bronze-слой (part / partsupp / supplier) через Lakekeeper из Spark,
-сверяет счётчики с Trino и прогоняет Q16 на Bronze.
-Запускается из scripts/spark-bronze.ps1.
-"""
 from pyspark.sql import SparkSession
 import time
 
@@ -27,14 +22,14 @@ spark = (SparkSession.builder
 
 spark.sparkContext.setLogLevel("WARN")
 
-print("=== Таблицы в lakekeeper.bronze ===")
+print("=== Tables in lakekeeper.bronze ===")
 spark.sql("SHOW TABLES IN lakekeeper.bronze").show(truncate=False)
 
 for t in ("part", "partsupp", "supplier"):
     rows = spark.table(f"lakekeeper.bronze.{t}").count()
-    print(f"lakekeeper.bronze.{t}: {rows} строк")
+    print(f"lakekeeper.bronze.{t}: {rows} rows")
 
-print("=== Q16 на Bronze (то же, что считается на Gold) ===")
+print("=== Q16 on Bronze (same as Gold) ===")
 q16 = """
 SELECT p.brand, p.type, p.size,
        count(DISTINCT ps.suppkey) AS supplier_cnt
@@ -55,6 +50,6 @@ spark.sql(q16).show(20, truncate=False)
 for run in (1, 2, 3):
     t0 = time.time()
     spark.sql(q16).collect()
-    print(f"Q16 на Bronze, прогон {run}: {time.time() - t0:.2f} с")
+    print(f"Q16 on Bronze, run {run}: {time.time() - t0:.2f} s")
 
 spark.stop()

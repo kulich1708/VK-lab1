@@ -1,0 +1,70 @@
+﻿Stack is healthy
+
+#### SCHEMA EVOLUTION ####
+Schema before:
+ Column  |  Type  | Extra | Comment 
+---------+--------+-------+---------
+ partkey | bigint |       |         
+ suppkey | bigint |       |         
+(2 rows)
+Files before: 1, rows before: 800000
+--- ADD COLUMN supply_share ---
+ADD COLUMN
+First 5 rows (supply_share must be NULL):
+ partkey | suppkey | supply_share 
+---------+---------+--------------
+  150002 |       3 |         NULL 
+  150003 |    5034 |         NULL 
+  150004 |       5 |         NULL 
+  150004 |    5035 |         NULL 
+  150005 |    2521 |         NULL 
+(5 rows)
+Row counts (new_col_not_null must be 0):
+ rows_total | new_col_not_null 
+------------+------------------
+     800000 |                0 
+(1 row)
+Files after ADD COLUMN: 1 (must equal 1 - files not rewritten)
+--- RENAME COLUMN supply_share to line_share ---
+RENAME COLUMN
+   Column   |  Type  | Extra | Comment 
+------------+--------+-------+---------
+ partkey    | bigint |       |         
+ suppkey    | bigint |       |         
+ line_share | double |       |         
+(3 rows)
+--- DROP COLUMN line_share (back to original schema) ---
+DROP COLUMN
+ Column  |  Type  | Extra | Comment 
+---------+--------+-------+---------
+ partkey | bigint |       |         
+ suppkey | bigint |       |         
+(2 rows)
+
+#### TIME TRAVEL ####
+Snapshot history:
+     snapshot_id     |        committed_at         | operation 
+---------------------+-----------------------------+-----------
+ 7706222396562141485 | 2026-10-18 01:24:31.976 UTC | append    
+(1 row)
+Good snapshot id: 7706222396562141485
+Rows before accident: 800000
+--- ACCIDENT: DELETE ... WHERE suppkey % 2 = 1 ---
+DELETE: 400000 rows
+Rows after accident: 400000
+--- Read old snapshot via FOR VERSION AS OF 7706222396562141485 ---
+Rows in old snapshot: 800000
+--- RESTORE: rollback_to_snapshot(7706222396562141485) ---
+ALTER TABLE EXECUTE
+ rows 
+------
+(0 rows)
+Rows after restore: 800000
+Snapshot history after restore:
+     snapshot_id     |        committed_at         | operation 
+---------------------+-----------------------------+-----------
+ 7706222396562141485 | 2026-10-18 01:24:31.976 UTC | append    
+ 3696567428068805051 | 2026-10-18 01:25:41.496 UTC | delete    
+(2 rows)
+
+DONE
